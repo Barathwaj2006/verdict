@@ -1,38 +1,105 @@
-# VERDICT Architecture
+# VERDICT System Architecture
 
-VERDICT is structured as a decoupled backend orchestration engine exposing real-time state via FastAPI.
+## Overview
+VERDICT is an autonomous decision-research engine designed to evaluate complex objectives, gather empirical evidence, challenge key claims through skeptical analysis, independently verify disputed evidence, and converge recursively on a final verdict.
 
-## Data Flow
+Phase 1 (M0–M9 + M5.5) represents the complete, fully audited, and frozen backend orchestration engine and baseline frontend stream consumer (Audit Score: 95/100, Freeze Commit: `619061f`).
 
-```mermaid
-graph TD
-    User([Frontend / User]) -->|POST /api/investigations| API[FastAPI Entrypoint]
-    API --> Controller[InvestigationController]
-    
-    subgraph Autonomous Engine
-        Controller --> Lead[Lead Agent]
-        Lead -->|Creates| Missions[Research Missions]
-        Missions --> Specialist[Specialist Researchers]
-        Specialist -->|Fetches| Tools[External Sources / DDG]
-        Specialist --> Skeptic[Skeptic Agent]
-        Skeptic -->|Generates Challenges| Verifier[Verifier Agent]
-        Verifier --> Lead
-    end
+---
 
-    Controller -.->|Checkpoints| Firestore[(Google Cloud Firestore)]
-    
-    subgraph Live Streaming
-        Controller --> Bus[EventBus]
-        Specialist --> Bus
-        Skeptic --> Bus
-        Verifier --> Bus
-        Bus -->|SSE| Stream[FastAPI /stream endpoint]
-        Stream -->|Real-time Events| User
-    end
+## High-Level System Architecture
+
+```
+                                  +-----------------------+
+                                  |     Next.js UI        |
+                                  |  (React, TypeScript)  |
+                                  +-----------+-----------+
+                                              |
+                                      HTTP / SSE Stream
+                                              |
+                                              v
+                                  +-----------------------+
+                                  |    FastAPI Server     |
+                                  |     (main.py / REST)  |
+                                  +-----------+-----------+
+                                              |
+                                              v
+                               +-----------------------------+
+                               |   InvestigationController   |
+                               +--------------+--------------+
+                                              |
+                                              v
+                              +-------------------------------+
+                              |          Lead Agent           |
+                              | (Gemini 2.5 Flash / Dynamic)  |
+                              +---------------+---------------+
+                                              |
+             +--------------------------------+--------------------------------+
+             |                                |                                |
+             v                                v                                v
++--------------------------+     +--------------------------+     +--------------------------+
+|   Landscape Researcher   |     |  Feasibility Researcher  |     |  Opportunity Researcher  |
+|  (DuckDuckGo Search)     |     |  (DuckDuckGo Search)     |     |  (DuckDuckGo Search)     |
++------------+-------------+     +------------+-------------+     +------------+-------------+
+             |                                |                                |
+             +--------------------------------+--------------------------------+
+                                              |
+                                              v
+                                 +--------------------------+
+                                 |   Evidence Integrity     |
+                                 |  Validator (M5.5)        |
+                                 +------------+-------------+
+                                              |
+                                              v
+                                 +--------------------------+
+                                 |      Skeptic Agent       |
+                                 | (Claims Attack / DDG)    |
+                                 +------------+-------------+
+                                              |
+                                              v
+                                 +--------------------------+
+                                 |     Verifier Agent       |
+                                 | (Fact Checker / DDG)     |
+                                 +------------+-------------+
+                                              |
+                                              v
+                                 +--------------------------+
+                                 |  Firestore Persistence   |
+                                 |  (Round-by-Round State)  |
+                                 +--------------------------+
 ```
 
-## Key Components
-- **API routes**: Manages background execution and SSE streams.
-- **InvestigationController**: Executes the core recursive algorithm.
-- **EventBus**: Asynchronous dispatcher. Allows arbitrary HTTP endpoints to subscribe dynamically.
-- **FirestoreRepository**: Canonical persistent store. Ensures complete failure recovery via M6 checkpointing rules.
+---
+
+## Core Components
+
+### 1. Investigation Controller (`app/orchestration/investigation_controller.py`)
+- Manages the multi-round execution loop (up to `MAX_ROUNDS = 3`).
+- Coordinates state updates across rounds and interacts directly with `FirestoreRepository`.
+- Publishes execution steps to `EventBus` for Real-time SSE streaming.
+
+### 2. Lead Agent (`app/agents/lead/agent.py`)
+- Powered by `google-genai` (Gemini 2.5 Flash).
+- Analyzes user objectives and constraints.
+- Dynamically creates specialized research missions (Landscape, Feasibility, Opportunity).
+- Evaluates round evidence and determines whether a gap exists or if a final verdict can be issued.
+
+### 3. Research Orchestrator & Specialist Researchers (`app/orchestration/research_orchestrator.py`, `app/agents/researchers/`)
+- Executes research missions concurrently (`asyncio.gather`).
+- Leverages `DuckDuckGoSearchProvider` (`duckduckgo-search`) for web research.
+- Formulates claims backed by empirical evidence sources.
+
+### 4. Evidence Integrity Validator (`app/services/evidence_integrity.py`)
+- M5.5 Mechanism: Prevents hallucinated citations and unverified URLs from entering state.
+- Strips invalid or fake links, preserves valid external sources, and flags model internal knowledge appropriately.
+
+### 5. Skeptic Agent (`app/agents/skeptic/agent.py`)
+- Adversarial agent that prioritizes top claims and searches for counter-evidence, hidden risks, and false assumptions.
+- Attacks claims to weaken or invalidate flawed findings before final evaluation.
+
+### 6. Verifier Agent (`app/agents/verifier/agent.py`)
+- Independent fact-checker that verifies disputed claims against external ground-truth search results.
+- Transitions claims from `UNVERIFIED` to `VERIFIED` or `DISPROVED`.
+
+### 7. Event Bus & Real-Time SSE (`app/services/event_bus.py`, `app/api/routes.py`)
+- Broadcasts structured, non-CoT execution events to frontend clients via Server-Sent Events (`/api/investigations/{id}/events`).
