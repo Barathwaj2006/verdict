@@ -15,8 +15,20 @@
 - Python 3.12+
 - Node.js 18+ / npm
 - Google Gemini API Key
+- Google Cloud CLI (`gcloud`)
 
-### 2. Backend Setup
+### 2. Local Google Cloud Authentication
+To run the VERDICT backend locally, you must use Application Default Credentials (ADC). Do NOT create or commit service-account JSON keys in this repository.
+
+1. **Install Google Cloud CLI** from the official Google documentation.
+2. **Run `gcloud init`** to select the correct Google Cloud project.
+3. **Run `gcloud auth application-default login`**. This securely generates local ADC credentials outside of the repository.
+4. **Configure Environment Variables**: Copy `.env.example` to `.env` in the root and provide your `GEMINI_API_KEY` and `GOOGLE_CLOUD_PROJECT`.
+5. **Start the Backend**: `uvicorn main:app --host 127.0.0.1 --port 8000`.
+
+*Note: ADC credentials are automatically stored in your user profile outside the repository and must never be committed.*
+
+### 3. Backend Setup
 ```bash
 # Navigate to backend directory
 cd backend

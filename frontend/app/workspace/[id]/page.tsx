@@ -1,146 +1,95 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
-import { getInvestigationStatus, getVerdict, InvestigationState, FinalVerdict } from '../../../lib/api';
-import { useInvestigationSSE } from '../../../hooks/useInvestigationSSE';
-import TelemetryStream from '../../../components/TelemetryStream';
-import AgentGraph from '../../../components/AgentGraph';
-import EvidenceMatrix from '../../../components/EvidenceMatrix';
-import FinalVerdictReport from '../../../components/FinalVerdictReport';
+import { useInvestigationState } from '@/hooks/useInvestigationState';
+import { Suspense, lazy, useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import EvidenceMatrix from '@/components/EvidenceMatrix';
+import FinalVerdictReport from '@/components/FinalVerdictReport';
+import TelemetryStream from '@/components/TelemetryStream';
+import InvestigationGraph2D from '@/components/investigation/InvestigationGraph2D';
 
-export default function WorkspacePage() {
-  const params = useParams();
-  const router = useRouter();
-  const investigationId = params?.id as string;
+const Canvas = lazy(() => import('@react-three/fiber').then(m => ({ default: m.Canvas })));
+const InvestigationScene = lazy(() => import('@/components/three/InvestigationScene'));
+const OrbitControls = lazy(() => import('@react-three/drei').then(m => ({ default: m.OrbitControls })));
 
-  const [state, setState] = useState<InvestigationState | null>(null);
-  const [verdict, setVerdict] = useState<FinalVerdict | null>(null);
-  const [selectedRound, setSelectedRound] = useState<number>(1);
-
-  const { events, isConnected } = useInvestigationSSE(investigationId);
-
-  const fetchStatus = useCallback(async () => {
-    if (!investigationId) return;
-    try {
-      const data = await getInvestigationStatus(investigationId);
-      setState(data);
-      if (data.current_round) {
-        setSelectedRound(data.current_round);
-      }
-      if (data.status === 'COMPLETED' || data.final_verdict) {
-        const vData = data.final_verdict || (await getVerdict(investigationId));
-        setVerdict(vData);
-      }
-    } catch (err: unknown) {
-      console.error('Failed to fetch investigation status:', err);
-    }
-  }, [investigationId]);
+function useVisualCapability() {
+  const [capability, setCapability] = useState<'FULL_3D' | 'REDUCED_3D' | '2D_FALLBACK'>('FULL_3D');
 
   useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 3000);
-    return () => clearInterval(interval);
-  }, [fetchStatus]);
+    const isMobile = window.innerWidth < 768;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    
+    // Very basic WebGL check
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    const hasWebGL = !!gl;
 
-  const currentRoundObj = state?.rounds?.find((r) => r.round_number === selectedRound) || state?.rounds?.[0];
-  const claims = currentRoundObj?.claims || [];
-  const challenges = currentRoundObj?.skeptic_challenges || [];
+    if (!hasWebGL || isMobile) {
+      setCapability('2D_FALLBACK');
+    } else if (reducedMotion) {
+      setCapability('REDUCED_3D');
+    } else {
+      setCapability('FULL_3D');
+    }
+  }, []);
 
+  return capability;
+}
+
+export default function WorkspacePage({ params }: { params: { id: string } }) {
+  const state = useInvestigationState(params.id);
+  const visualCapability = useVisualCapability();
+  
   return (
-    <div className="min-h-screen bg-[#07080C] text-gray-100 flex flex-col justify-between relative overflow-hidden">
-      {/* Background Ambience */}
-      <div className="absolute top-0 left-1/3 w-[500px] h-[300px] bg-indigo-600/10 rounded-full blur-[140px] pointer-events-none" />
-
-      {/* Header */}
-      <header className="px-6 py-4 border-b border-white/10 glass-panel flex items-center justify-between z-10 sticky top-0">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push('/')}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all border border-white/10"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-extrabold text-sm tracking-wide text-white font-mono">
-                INVESTIGATION #{investigationId?.slice(0, 8)}
-              </h1>
-              <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-[10px] font-mono">
-                {state?.status || 'RUNNING'}
-              </span>
-            </div>
-            <p className="text-[11px] text-gray-400 font-sans line-clamp-1 max-w-md">
-              {state?.objective || 'Loading objective...'}
-            </p>
+    <main className="min-h-screen bg-black text-white flex flex-col xl:flex-row font-sans overflow-hidden xl:h-screen">
+      
+      {/* LEFT PANEL: Investigation Visualization */}
+      <section className="relative w-full xl:w-1/2 h-[45vh] sm:h-[50vh] xl:h-full border-b xl:border-b-0 xl:border-r border-neutral-900 bg-neutral-950 flex flex-col shrink-0">
+        <div className="absolute top-0 left-0 p-4 xl:p-6 z-10 w-full bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+          <h2 className="text-xs xl:text-sm tracking-[0.2em] text-neutral-500 font-semibold uppercase">Verdict Workspace</h2>
+          <div className="flex items-center gap-3 mt-1 xl:mt-2">
+            <span className={`h-2 w-2 rounded-full ${state.isConnected ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : state.isComplete ? 'bg-blue-500' : 'bg-yellow-500 animate-pulse'}`}></span>
+            <span className="font-mono text-xs xl:text-sm">{state.isComplete ? 'COMPLETED' : state.isConnected ? 'LIVE' : 'CONNECTING'} {'//'} ROUND {state.round}</span>
           </div>
         </div>
 
-        {/* Round Switcher & Actions */}
-        <div className="flex items-center gap-3">
-          {state?.rounds && state.rounds.length > 0 && (
-            <div className="flex items-center gap-1 bg-[#0D0F17] p-1 rounded-xl border border-white/10">
-              {state.rounds.map((r) => (
-                <button
-                  key={r.round_number}
-                  onClick={() => setSelectedRound(r.round_number)}
-                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all ${
-                    selectedRound === r.round_number
-                      ? 'bg-indigo-600 text-white shadow-md'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Round {r.round_number}
-                </button>
-              ))}
-            </div>
+        <div className="flex-1 w-full h-full cursor-grab active:cursor-grabbing">
+          {visualCapability === '2D_FALLBACK' ? (
+            <InvestigationGraph2D state={state} />
+          ) : (
+            <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-neutral-600"><Loader2 className="animate-spin w-8 h-8" /></div>}>
+              <Canvas camera={{ position: [0, 2, 8], fov: 60 }}>
+                <InvestigationScene state={state} />
+                <OrbitControls enableZoom={true} enablePan={false} maxPolarAngle={Math.PI / 1.5} minPolarAngle={Math.PI / 4} />
+              </Canvas>
+            </Suspense>
           )}
-
-          <button
-            onClick={fetchStatus}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all border border-white/10"
-            title="Refresh Status"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
         </div>
-      </header>
+      </section>
 
-      {/* Main Grid Workspace */}
-      <main className="max-w-7xl mx-auto px-6 py-6 flex-1 w-full space-y-6 z-10">
-        {/* Final Verdict Banner (If Completed) */}
-        {(verdict || state?.final_verdict) && (
-          <FinalVerdictReport
-            verdict={verdict || state!.final_verdict!}
-            objective={state?.objective || ''}
-          />
+      {/* RIGHT PANEL: Data & UI */}
+      <section className="w-full xl:w-1/2 flex-1 overflow-y-auto bg-[#0a0a0a] flex flex-col relative">
+        {state.isComplete && state.finalVerdict ? (
+          <div className="p-4 xl:p-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+             <FinalVerdictReport verdict={state.finalVerdict} objective={state.objective} />
+          </div>
+        ) : (
+          <div className="flex-1 p-4 xl:p-6 space-y-6 flex flex-col h-full">
+            
+            {/* TELEMETRY */}
+            <div className="h-64 shrink-0">
+               <TelemetryStream events={state.events} isConnected={state.isConnected} />
+            </div>
+
+            {/* EVIDENCE MATRIX */}
+            <div>
+               <h3 className="text-[10px] xl:text-xs uppercase tracking-wider text-neutral-500 font-bold mb-3 border-b border-neutral-800 pb-2">Evidence Matrix</h3>
+               <EvidenceMatrix claims={state.claims} challenges={state.challenges} />
+            </div>
+          </div>
         )}
-
-        {/* Workspace Telemetry & Agent Graph Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[520px]">
-          {/* Left Column: Real-time Telemetry Stream */}
-          <div className="lg:col-span-4 h-full">
-            <TelemetryStream
-              events={events}
-              isConnected={isConnected}
-            />
-          </div>
-
-          {/* Right Column: Dynamic Agent Graph */}
-          <div className="lg:col-span-8 h-full">
-            <AgentGraph state={state} selectedRound={selectedRound} />
-          </div>
-        </div>
-
-        {/* Bottom Section: Evidence Matrix & Claims */}
-        <EvidenceMatrix claims={claims} challenges={challenges} />
-      </main>
-
-      {/* Footer */}
-      <footer className="px-6 py-3 border-t border-white/5 text-center text-xs text-gray-500 font-mono glass-panel">
-        VERDICT Command Center &bull; Round-by-Round Firestore Persisted &bull; Grounded Evidence Matrix
-      </footer>
-    </div>
+      </section>
+      
+    </main>
   );
 }

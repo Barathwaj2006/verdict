@@ -24,7 +24,13 @@ class FirestoreRepository:
                 self.db = firestore.Client()
         except Exception as e:
             print(f"Failed to initialize Firestore client: {e}")
-            raise RuntimeError(f"Firestore initialization failed: {e}")
+            raise RuntimeError(
+                f"Firestore initialization failed: {e}\n\n"
+                "To run this locally, you must authenticate with Google Cloud Application Default Credentials (ADC).\n"
+                "Run the following commands:\n"
+                "1. gcloud init (to select your project)\n"
+                "2. gcloud auth application-default login\n"
+            )
             
     def _clean_dict(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Recursively removes None values from a dict, as Firestore doesn't like some None fields or we just want to save space."""
