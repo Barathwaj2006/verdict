@@ -1,42 +1,66 @@
-# API Contract (FastAPI)
+# VERDICT API Contract
 
-## REST Endpoints
+The API uses FastAPI and returns structured JSON.
 
-### `POST /api/v1/investigations`
-Start a new investigation.
+## Endpoints
+
+### 1. `GET /health`
+Returns basic service health.
+**Response**:
+```json
+{
+  "status": "ok",
+  "service": "verdict-api"
+}
+```
+
+### 2. `POST /api/investigations`
+Starts a new autonomous investigation in the background.
 **Request**:
 ```json
 {
-  "objective": "Find the strongest project opportunity for this hackathon...",
-  "constraints": ["solo developer", "3 days to build"]
+  "objective": "Determine if fusion power is viable before 2040",
+  "constraints": ["Must rely on peer-reviewed evidence"]
 }
 ```
 **Response**:
 ```json
 {
-  "investigation_id": "inv_12345",
+  "investigation_id": "inv_123abc",
   "status": "STARTED"
 }
 ```
 
-### `GET /api/v1/investigations/{investigation_id}`
-Retrieve the full state of an investigation.
+### 3. `GET /api/investigations/{investigation_id}`
+Returns metadata and status.
 **Response**:
-Returns the `Investigation` aggregate object including all rounds, claims, and final verdict (if any).
-
-### `GET /api/v1/investigations/{investigation_id}/events`
-SSE (Server-Sent Events) endpoint to stream execution events to the frontend in real-time.
-
-### `POST /api/v1/investigations/{investigation_id}/clarify`
-Provide answers to Lead Agent's clarification questions.
-**Request**:
 ```json
 {
-  "answers": [
-    {
-      "question_id": "q_1",
-      "answer": "I have experience with Python."
-    }
-  ]
+  "investigation_id": "inv_123abc",
+  "status": "IN_PROGRESS",
+  "current_round": 1
 }
 ```
+
+### 4. `GET /api/investigations/{investigation_id}/stream`
+Provides a Server-Sent Events (SSE) stream.
+**Events**:
+- `INVESTIGATION_STARTED`
+- `ROUND_STARTED`
+- `RESEARCH_COMPLETED`
+- `SKEPTIC_COMPLETED`
+- `ROUND_COMPLETED`
+- `INVESTIGATION_COMPLETED`
+
+### 5. `POST /api/investigations/{investigation_id}/resume`
+Resumes an interrupted or stalled investigation.
+**Response**:
+```json
+{
+  "investigation_id": "inv_123abc",
+  "status": "RESUMED"
+}
+```
+
+### 6. `GET /api/investigations/{investigation_id}/verdict`
+Returns the final generated verdict if the investigation has completed.
