@@ -80,7 +80,7 @@ export default function TelemetryStream({ events, isConnected }: TelemetryStream
               </div>
 
               <p className="text-gray-400 text-[11px] font-sans line-clamp-2">
-                {evt.data?.summary || evt.data?.description || JSON.stringify(evt.data)}
+                {String(evt.data?.summary || evt.data?.description || evt.data?.objective || (evt.data?.role ? `Agent role: ${evt.data.role}` : '') || JSON.stringify(evt.data))}
               </p>
             </div>
           ))

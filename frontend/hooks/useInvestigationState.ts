@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo } from "react";
 import { useInvestigationSSE, SSEEvent } from "./useInvestigationSSE";
-
-import { Claim, SkepticChallenge } from "@/lib/api";
+import { Claim, SkepticChallenge, FinalVerdict } from "@/lib/api";
 
 export interface AgentMission {
   role: string;
@@ -12,8 +11,12 @@ export interface AgentMission {
 }
 
 export interface Verification {
-  claim_index: number;
-  status: string;
+  claim_index?: number;
+  status?: string;
+  claim_id?: string;
+  verified?: boolean;
+  notes?: string;
+  external_sources?: string[];
 }
 
 export interface InvestigationViewState {
@@ -27,8 +30,8 @@ export interface InvestigationViewState {
   claims: Claim[];
   challenges: SkepticChallenge[];
   verifications: Verification[];
-  knowledgeGaps: any[];
-  finalVerdict: any | null;
+  knowledgeGaps: Array<{ question?: string; priority?: string } | Record<string, unknown>>;
+  finalVerdict: FinalVerdict | null;
   activeAgents: Set<string>;
 }
 
@@ -64,32 +67,34 @@ export function useInvestigationState(investigationId: string | null): Investiga
     };
 
     events.forEach(e => {
-      const d = e.data || {};
+      const d = (e.data || {}) as Record<string, unknown>;
       
       if (e.event_type === "INVESTIGATION_STARTED") {
-        s.objective = d.objective || s.objective;
+        s.objective = (d.objective as string) || s.objective;
       }
       if (e.event_type === "ROUND_STARTED") {
-        s.round = d.round_number || s.round;
+        s.round = (d.round_number as number) || s.round;
       }
       if (e.event_type === "RESEARCH_MISSION_CREATED") {
-        s.missions.push({ role: d.role, query: d.query, status: "pending" });
+        s.missions.push({ role: (d.role as string) || '', query: (d.query as string) || '', status: "pending" });
       }
       if (e.event_type === "RESEARCHER_STARTED") {
-        s.activeAgents.add(d.role || "Researcher");
-        const m = s.missions.find(m => m.role === d.role);
+        const role = (d.role as string) || "Researcher";
+        s.activeAgents.add(role);
+        const m = s.missions.find(m => m.role === role);
         if (m) m.status = "running";
       }
       if (e.event_type === "RESEARCHER_COMPLETED") {
-        s.activeAgents.delete(d.role || "Researcher");
-        const m = s.missions.find(m => m.role === d.role);
+        const role = (d.role as string) || "Researcher";
+        s.activeAgents.delete(role);
+        const m = s.missions.find(m => m.role === role);
         if (m) m.status = "completed";
       }
-      if (e.event_type === "CLAIM_CREATED") {
-        s.claims.push(d.claim);
+      if (e.event_type === "CLAIM_CREATED" && d.claim) {
+        s.claims.push(d.claim as Claim);
       }
-      if (e.event_type === "CHALLENGE_CREATED") {
-        s.challenges.push(d.challenge);
+      if (e.event_type === "CHALLENGE_CREATED" && d.challenge) {
+        s.challenges.push(d.challenge as SkepticChallenge);
       }
       if (e.event_type === "SKEPTIC_STARTED") {
         s.activeAgents.add("Skeptic");
@@ -102,17 +107,18 @@ export function useInvestigationState(investigationId: string | null): Investiga
       }
       if (e.event_type === "VERIFICATION_COMPLETED") {
         s.activeAgents.delete("Verifier");
-        s.verifications.push(d.verification || d);
-        if (d.claim_index !== undefined && s.claims[d.claim_index]) {
-            s.claims[d.claim_index].verification_status = d.status || s.claims[d.claim_index].verification_status;
+        s.verifications.push((d.verification || d) as Verification);
+        const idx = d.claim_index as number | undefined;
+        if (idx !== undefined && s.claims[idx]) {
+          s.claims[idx].verification_status = ((d.status as 'UNVERIFIED' | 'VERIFIED' | 'DISPROVED') || s.claims[idx].verification_status);
         }
       }
-      if (e.event_type === "KNOWLEDGE_GAP_IDENTIFIED") {
-        s.knowledgeGaps.push(d.gap);
+      if (e.event_type === "KNOWLEDGE_GAP_IDENTIFIED" && d.gap) {
+        s.knowledgeGaps.push(d.gap as { question?: string; priority?: string });
       }
       if (e.event_type === "INVESTIGATION_COMPLETED") {
         s.isComplete = true;
-        s.finalVerdict = d.verdict;
+        s.finalVerdict = (d.verdict as FinalVerdict) || null;
       }
     });
 
