@@ -1,0 +1,6 @@
+{
+  "name": "VERDICT",
+  "description": "Autonomous research system that plans investigations, challenges findings, verifies evidence, and decides defensible conclusions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -7,7 +7,7 @@ export interface SSEEvent {
   event_type: string;
   investigation_id: string;
   timestamp: string;
-  data: any;
+  data: Record<string, unknown>;
 }
 
 export function useInvestigationSSE(investigationId: string | null) {

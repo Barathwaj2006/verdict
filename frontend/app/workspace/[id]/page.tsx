@@ -2,7 +2,8 @@
 
 import { useInvestigationState } from '@/hooks/useInvestigationState';
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus } from 'lucide-react';
+import Link from 'next/link';
 import EvidenceMatrix from '@/components/EvidenceMatrix';
 import FinalVerdictReport from '@/components/FinalVerdictReport';
 import TelemetryStream from '@/components/TelemetryStream';
@@ -45,12 +46,22 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
       
       {/* LEFT PANEL: Investigation Visualization */}
       <section className="relative w-full xl:w-1/2 h-[45vh] sm:h-[50vh] xl:h-full border-b xl:border-b-0 xl:border-r border-neutral-900 bg-neutral-950 flex flex-col shrink-0">
-        <div className="absolute top-0 left-0 p-4 xl:p-6 z-10 w-full bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
-          <h2 className="text-xs xl:text-sm tracking-[0.2em] text-neutral-500 font-semibold uppercase">Verdict Workspace</h2>
-          <div className="flex items-center gap-3 mt-1 xl:mt-2">
-            <span className={`h-2 w-2 rounded-full ${state.isConnected ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : state.isComplete ? 'bg-blue-500' : 'bg-yellow-500 animate-pulse'}`}></span>
-            <span className="font-mono text-xs xl:text-sm">{state.isComplete ? 'COMPLETED' : state.isConnected ? 'LIVE' : 'CONNECTING'} {'//'} ROUND {state.round}</span>
+        <div className="absolute top-0 left-0 p-4 xl:p-6 z-10 w-full bg-gradient-to-b from-black/80 to-transparent flex items-center justify-between pointer-events-auto">
+          <div>
+            <Link href="/" className="text-xs xl:text-sm tracking-[0.2em] text-neutral-400 hover:text-white font-semibold uppercase flex items-center gap-1.5 transition-colors">
+              <ArrowLeft className="w-3.5 h-3.5" /> Verdict Workspace
+            </Link>
+            <div className="flex items-center gap-3 mt-1 xl:mt-2">
+              <span className={`h-2 w-2 rounded-full ${state.isConnected ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : state.isComplete ? 'bg-blue-500' : 'bg-yellow-500 animate-pulse'}`}></span>
+              <span className="font-mono text-xs xl:text-sm">{state.isComplete ? 'COMPLETED' : state.isConnected ? 'LIVE' : 'CONNECTING'} {'//'} ROUND {state.round}</span>
+            </div>
           </div>
+          <Link
+            href="/"
+            className="px-3 py-1.5 rounded-lg bg-neutral-900/90 hover:bg-neutral-800 border border-neutral-700 text-xs font-mono text-neutral-300 hover:text-white flex items-center gap-1.5 transition-all shadow-lg"
+          >
+            <Plus className="w-3.5 h-3.5" /> New Query
+          </Link>
         </div>
 
         <div className="flex-1 w-full h-full cursor-grab active:cursor-grabbing">
