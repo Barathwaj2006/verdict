@@ -1,3 +1,16 @@
+/**
+ * ============================================================================
+ * VERDICT — DEMO / MOCK FIXTURE ONLY
+ * ============================================================================
+ * NOTE: The canonical VERDICT investigation engine is the Python FastAPI backend
+ * located in `/backend` (InvestigationController, LeadAgent, SpecialistResearcher,
+ * SkepticAgent, VerifierAgent, FirestoreRepository, EventBus).
+ *
+ * This file is strictly an isolated UI/Demo mock fixture for visual development
+ * and offline preview fallback. It is NOT the production investigation engine.
+ * ============================================================================
+ */
+
 import { Claim, SkepticChallenge, VerificationResult, FinalVerdict, InvestigationState } from './api';
 
 export interface InvestigationSession {

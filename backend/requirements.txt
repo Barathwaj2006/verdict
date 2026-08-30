@@ -1,0 +1,12 @@
+google-genai>=2.3.0
+pydantic
+pytest
+pytest-asyncio
+python-dotenv
+google-cloud-firestore>=2.11.0
+fastapi>=0.100.0
+uvicorn>=0.23.0
+sse-starlette>=1.6.0
+httpx>=0.24.1
+httpx-sse>=0.3.1
+duckduckgo-search>=8.0.0
