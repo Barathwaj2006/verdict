@@ -1,179 +1,55 @@
 # VERDICT: Autonomous Decision-Research Engine
 
-![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?style=flat&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat&logo=fastapi&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-14+-000000?style=flat&logo=nextdotjs&logoColor=white)
-![Google Gemini](https://img.shields.io/badge/Google_Gemini-2.5_Flash-8E75B2?style=flat&logo=googlegemini&logoColor=white)
-![Google Cloud Run Ready](https://img.shields.io/badge/Google_Cloud_Run-Deployment_Ready-4285F4?style=flat&logo=googlecloud&logoColor=white)
-![Tests Passed](https://img.shields.io/badge/Tests-35%20Passed-success?style=flat)
-![Phase 1 Audit](https://img.shields.io/badge/Phase_1_Audit-95%2F100-brightgreen?style=flat)
+## 🌍 The Problem
+Generative AI excels at answering questions quickly, but real-world decision-making requires investigation. Whether a team is evaluating an architecture migration, a legal claim, or a competitive threat, standard LLMs often hallucinate, summarize poorly, or stop at surface-level answers. 
 
-> **VERDICT** is an autonomous multi-agent decision-research engine powered by Google Gemini 2.5, FastAPI, Next.js, and Google Cloud Firestore. It converts high-level objectives into rigorously verified strategic decisions through adaptive research, skeptical attack, independent fact-checking, and recursive gap analysis.
+## 💡 The Solution
+VERDICT is an autonomous, multi-agent investigation system that mimics a real-world research team. It doesn't just answer; it plans, researches, aggressively challenges its own findings, independently verifies sources, and recursively hunts for the truth before issuing an executive decision.
 
 ---
 
-## 🔒 Phase 1 Frozen State Notice
-
-Phase 1 (**M0–M9 + M5.5**) backend orchestration, agent contracts, evidence integrity pipeline, and persistence layer are **100% complete and FROZEN**.
-
-- **Phase 1 Audit Score**: `95/100`
-- **Freeze Commit**: `619061f`
-- **Automated Test Suite**: 35 passing unit and integration tests (`pytest backend/tests -v`)
-- **Current Stage**: Phase 2A (Repository Finalization & Documentation) complete. Ready for Phase 2B UI/UX evolution.
+## 🚀 Google Technologies
+VERDICT is built exclusively on a modern Google Cloud stack:
+- **Google Gemini:** Powered by `gemini-3.7-flash` for high-speed, complex reasoning.
+- **Google GenAI SDK:** Uses native structured outputs to deterministically orchestrate agents without fragile prompt-engineering.
+- **Google Cloud Firestore:** Provides durable, round-by-round persistence of evidence matrices and agent states.
+- **Google Cloud Run:** Fully containerized backend designed for serverless execution.
 
 ---
 
-## 💡 Problem & Solution
+## 🤖 Agentic Architecture & Recursion
 
-### The Problem
-Traditional LLM decision assistance suffers from critical flaws:
-1. **Single-pass bias**: LLMs generate plausible answers without checking counter-arguments or disconfirming evidence.
-2. **Citation hallucination**: AI tools often fabricate URLs, domain names, or quote sources out of context.
-3. **Fixed research loops**: Rigid prompt sequences fail to adapt when initial information is insufficient.
-4. **Opaque reasoning**: Users receive black-box advice without verifiable evidence trails.
+VERDICT uses a dynamic hierarchy of specialized agents:
 
-### The Solution: VERDICT
-VERDICT introduces an autonomous, adversarial, and recursive decision engine:
-- **Dynamic Orchestration**: A Lead Agent briefs specialized researchers dynamically based on the specific goal.
-- **Adversarial Skepticism**: A dedicated Skeptic Agent actively attacks key assumptions and seeks counter-evidence.
-- **Independent Verification**: A Verifier Agent audits critical claims against live web sources.
-- **Anti-Hallucination Pipeline**: Non-existent URLs and fabricated citations are stripped automatically (M5.5).
-- **Recursive Adaptive Loop**: If knowledge gaps remain, the Lead Agent automatically initiates additional targeted research rounds.
+1. **Lead Agent:** Evaluates the problem, creates dynamic research missions, and acts as the final judge.
+2. **Specialist Researchers:** Spawned concurrently to scrape the web and extract evidence.
+3. **Skeptic Agent:** Adversarially challenges claims, looking for logical flaws or unsupported statements.
+4. **Verifier Agent:** Runs independent secondary searches to confirm or refute the Skeptic's challenges.
+
+**Recursion:** If the Lead Agent identifies a "Knowledge Gap" in the verified evidence, it autonomously loops back and spawns a new round of targeted research. The investigation continues until an evidence threshold is met or the `MAX_ROUNDS` limit is reached.
 
 ---
 
-## 🏗 System Architecture & Dynamic Flow
+## 🛡 Evidence Integrity & Anti-Hallucination
 
-```
-                                  +-----------------------+
-                                  |     Next.js UI        |
-                                  |  (React, TypeScript)  |
-                                  +-----------+-----------+
-                                              |
-                                      HTTP / SSE Stream
-                                              |
-                                              v
-                                  +-----------------------+
-                                  |    FastAPI Server     |
-                                  |     (main.py / REST)  |
-                                  +-----------+-----------+
-                                              |
-                                              v
-                               +-----------------------------+
-                               |   InvestigationController   |
-                               +--------------+--------------+
-                                              |
-                                              v
-                              +-------------------------------+
-                              |          Lead Agent           |
-                              | (Gemini 2.5 Flash / Dynamic)  |
-                              +---------------+---------------+
-                                              |
-             +--------------------------------+--------------------------------+
-             |                                |                                |
-             v                                v                                v
-+--------------------------+     +--------------------------+     +--------------------------+
-|   Landscape Researcher   |     |  Feasibility Researcher  |     |  Opportunity Researcher  |
-|  (DuckDuckGo Search)     |     |  (DuckDuckGo Search)     |     |  (DuckDuckGo Search)     |
-+------------+-------------+     +------------+-------------+     +------------+-------------+
-             |                                |                                |
-             +--------------------------------+--------------------------------+
-                                              |
-                                              v
-                                 +--------------------------+
-                                 |   Evidence Integrity     |
-                                 |  Validator (M5.5)        |
-                                 +------------+-------------+
-                                              |
-                                              v
-                                 +--------------------------+
-                                 |      Skeptic Agent       |
-                                 | (Claims Attack / DDG)    |
-                                 +------------+-------------+
-                                              |
-                                              v
-                                 +--------------------------+
-                                 |     Verifier Agent       |
-                                 | (Fact Checker / DDG)     |
-                                 +------------+-------------+
-                                              |
-                                              v
-                                 +--------------------------+
-                                 |  Firestore Persistence   |
-                                 |  (Round-by-Round State)  |
-                                 +--------------------------+
-```
-
----
-
-## 🤖 Autonomous Multi-Agent Hierarchy
-
-| Agent | Core Responsibilities | Search / Capabilities |
-| :--- | :--- | :--- |
-| **Lead Agent** | Task decomposition, dynamic researcher briefing, round evaluation, final decision rendering. | Gemini 2.5 Flash structured reasoning |
-| **Landscape Researcher** | Context, competitor analysis, prior art, market standards. | Concurrent DuckDuckGo search |
-| **Feasibility Researcher** | Technical viability, build complexity, dependencies, operational risks. | Concurrent DuckDuckGo search |
-| **Opportunity Researcher** | Value proposition, user impact, differentiation, ROI potential. | Concurrent DuckDuckGo search |
-| **Skeptic Agent** | Adversarial challenger attacking claims, identifying risks and counter-evidence. | Target DuckDuckGo counter-search |
-| **Verifier Agent** | Independent auditor checking disputed claims against live ground truth sources. | Independent source verification search |
-
----
-
-## 🛡 Evidence Integrity & Anti-Hallucination Mechanisms
-
-- **Citation Validation**: Strips hallucinated or unreachable URLs from research evidence before state storage.
+- **Citation Validation**: Strips hallucinated or unreachable URLs from research evidence before state storage using Python-level validation.
 - **Duplicate Query Protector**: Prevents looping or repetitive searches across research rounds.
-- **Context Compressor**: Condenses multi-round history into dense summaries without losing key findings.
 - **Verification Thresholds**: Claims default to `UNVERIFIED` and only transition to `VERIFIED` when verified by independent web sources.
 
 ---
 
-## 📂 Project Directory Structure
+## 📂 Project Structure
 
-```
-verdict/
-├── README.md                      # Primary project overview & presentation
-├── AGENTS.md                      # Agent architecture conventions & development guidelines
-├── .env.example                   # Template for required environment variables
-├── backend/                       # Python / FastAPI orchestration engine
-│   ├── main.py                    # FastAPI server entrypoint
-│   ├── requirements.txt           # Backend dependencies (fastapi, google-genai, pytest, etc.)
-│   ├── Dockerfile                 # Cloud Run deployment Dockerfile
-│   ├── app/
-│   │   ├── api/                   # REST routes & SSE streaming endpoints
-│   │   ├── agents/                # Lead, Researcher, Skeptic, Verifier agent implementations
-│   │   ├── models/                # Pydantic state models, claims, plans & contracts
-│   │   ├── orchestration/         # Investigation controller & dynamic research loop
-│   │   └── services/              # Firestore repository, evidence integrity, search tools
-│   └── tests/                     # 35 backend unit & integration tests
-├── frontend/                      # Next.js / React user interface
-│   ├── package.json               # Frontend dependencies & scripts
-│   ├── Dockerfile                 # Frontend Docker container definition
-│   ├── app/                       # Next.js app router pages & SSE event consumers
-│   └── lib/                       # API client utilities & type definitions
-└── docs/                          # In-depth architectural & API documentation
-    ├── architecture.md            # Overall system architecture & dynamic feedback loop
-    ├── agents.md                  # Detailed agent roles, responsibilities & schemas
-    ├── evidence-integrity.md      # Anti-hallucination & citation validation pipeline
-    ├── api.md                     # REST API reference & SSE stream schema
-    ├── cloud-architecture.md      # Firestore schema & Cloud Run serverless design
-    ├── deployment.md              # Local execution & Cloud Run readiness guide
-    └── development.md             # Developer setup, testing guide & Phase 1 freeze details
-```
+- `backend/`: Python / FastAPI orchestration engine.
+- `frontend/`: Next.js 14 premium investigation workspace with React Three Fiber (R3F) 3D telemetry visualization.
+- `presentation/`: Standalone Next.js marketing and storytelling website.
+- `docs/`: In-depth architectural & API documentation.
 
 ---
 
 ## 🛠 Local Setup & Running Tests
 
-### 1. Backend Setup
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. Environment Configuration
+### 1. Environment Configuration
 Copy `.env.example` to `.env`:
 ```bash
 GEMINI_API_KEY=your-gemini-api-key
@@ -183,12 +59,16 @@ CORS_ORIGINS=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-### 3. Run Backend Test Suite
+### 2. Backend Setup & Tests
 ```bash
-PYTHONPATH=backend python3 -m pytest backend/tests -v
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+PYTHONPATH=. python3 -m pytest tests -v
 ```
 
-### 4. Start Servers
+### 3. Start Servers
 ```bash
 # Start FastAPI backend
 cd backend
@@ -198,31 +78,19 @@ uvicorn main:app --reload --port 8000
 cd frontend
 npm install
 npm run dev
+
+# Start Presentation Website (in another terminal)
+cd presentation
+npm install
+npm run dev
 ```
 
 ---
 
-## 🚀 Google Cloud Run Readiness
+## ☁️ Deployment & Demo Status
 
-VERDICT is fully containerized and Cloud Run deployment-ready:
-- Uses serverless container standards with dynamic `$PORT` binding.
-- Durably persists investigation state round-by-round to Google Cloud Firestore.
-- Non-blocking real-time event streaming via FastAPI Server-Sent Events (SSE).
-
-> *Note: Live deployment to Google Cloud Run is fully supported and configured, but has not been executed yet.*
-
----
-
-## 🛣 Project Roadmap & Limitations
-
-### Roadmap
-- [x] **Phase 1 (M0–M9 + M5.5)**: Core dynamic research loop, evidence integrity, Skeptic, Verifier, and Firestore persistence. *(Complete, 95/100 Audit)*
-- [x] **Phase 2A**: Repository presentation, documentation suite, and secret audit. *(Complete)*
-- [ ] **Phase 2B**: Premium UI/UX redesign, interactive claim graph visualization, and streaming execution UI.
-
-### Limitations
-- Requires active internet connection for real-time web research via DuckDuckGo.
-- Maximum research loop depth defaults to 3 rounds (`MAX_ROUNDS = 3`) to balance thoroughness and execution speed.
+VERDICT is fully containerized and Cloud Run deployment-ready. 
+**Live Demo:** Cloud Run deployment pending external Google Cloud billing/account verification.
 
 ---
 

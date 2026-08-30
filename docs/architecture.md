@@ -3,103 +3,80 @@
 ## Overview
 VERDICT is an autonomous decision-research engine designed to evaluate complex objectives, gather empirical evidence, challenge key claims through skeptical analysis, independently verify disputed evidence, and converge recursively on a final verdict.
 
-Phase 1 (M0–M9 + M5.5) represents the complete, fully audited, and frozen backend orchestration engine and baseline frontend stream consumer (Audit Score: 95/100, Freeze Commit: `619061f`).
+## Architectural Planes
+
+### 1. INTERACTION PLANE
+- **User Interface:** Next.js App Router, Tailwind CSS, React Three Fiber (R3F) for 3D visualizations, 2D fallback.
+- **Client Communication:** REST API for commands, Server-Sent Events (SSE) for real-time telemetry.
+
+### 2. CONTROL PLANE
+- **API Routing:** FastAPI endpoints (`/api/investigations`).
+- **Investigation Controller:** Orchestrates the multi-round `while` loop (up to `MAX_ROUNDS`).
+- **EventBus:** Decoupled Pub/Sub broadcasting execution state to the SSE stream.
+
+### 3. AGENT EXECUTION PLANE
+- **Lead Agent:** Orchestrator powered by Gemini. Formulates strategy and evaluates findings.
+- **Dynamic Researchers:** Specialist agents spawned concurrently based on the Lead's research plan.
+- **Skeptic Agent:** Adversarial agent that challenges claims and searches for counter-evidence.
+- **Verifier Agent:** Fact-checker that independently verifies disputed claims.
+
+### 4. EVIDENCE / DECISION PLANE
+- **Evidence Integrity:** Python-level safeguards blocking hallucinated URLs.
+- **Evidence Matrix:** The consolidated state of Verified, Unverified, and Disproved claims.
+- **Decision Engine:** The Lead Agent evaluates the matrix to either issue a Final Verdict or declare a Knowledge Gap.
+
+### 5. INFRASTRUCTURE PLANE
+- **AI Core:** Google `gemini-3.7-flash` via `google-genai` SDK.
+- **State Store:** Google Cloud Firestore (durable round-by-round persistence).
+- **Compute:** Google Cloud Run (serverless containerized execution).
 
 ---
 
-## High-Level System Architecture
+## Core Execution Flow
 
-```
-                                  +-----------------------+
-                                  |     Next.js UI        |
-                                  |  (React, TypeScript)  |
-                                  +-----------+-----------+
-                                              |
-                                      HTTP / SSE Stream
-                                              |
-                                              v
-                                  +-----------------------+
-                                  |    FastAPI Server     |
-                                  |     (main.py / REST)  |
-                                  +-----------+-----------+
-                                              |
-                                              v
-                               +-----------------------------+
-                               |   InvestigationController   |
-                               +--------------+--------------+
-                                              |
-                                              v
-                              +-------------------------------+
-                              |          Lead Agent           |
-                              | (Gemini 2.5 Flash / Dynamic)  |
-                              +---------------+---------------+
-                                              |
-             +--------------------------------+--------------------------------+
-             |                                |                                |
-             v                                v                                v
-+--------------------------+     +--------------------------+     +--------------------------+
-|   Landscape Researcher   |     |  Feasibility Researcher  |     |  Opportunity Researcher  |
-|  (DuckDuckGo Search)     |     |  (DuckDuckGo Search)     |     |  (DuckDuckGo Search)     |
-+------------+-------------+     +------------+-------------+     +------------+-------------+
-             |                                |                                |
-             +--------------------------------+--------------------------------+
-                                              |
-                                              v
-                                 +--------------------------+
-                                 |   Evidence Integrity     |
-                                 |  Validator (M5.5)        |
-                                 +------------+-------------+
-                                              |
-                                              v
-                                 +--------------------------+
-                                 |      Skeptic Agent       |
-                                 | (Claims Attack / DDG)    |
-                                 +------------+-------------+
-                                              |
-                                              v
-                                 +--------------------------+
-                                 |     Verifier Agent       |
-                                 | (Fact Checker / DDG)     |
-                                 +------------+-------------+
-                                              |
-                                              v
-                                 +--------------------------+
-                                 |  Firestore Persistence   |
-                                 |  (Round-by-Round State)  |
-                                 +--------------------------+
+```mermaid
+flowchart TD
+    USER([User]) -->|Objective & Constraints| LEAD[Lead Agent]
+    
+    subgraph Round Execution
+        LEAD -->|Research Plan| RESEARCHERS[Dynamic Researchers]
+        RESEARCHERS -->|Raw Claims & Evidence| SKEPTIC[Skeptic Agent]
+        SKEPTIC -->|Challenges & Risks| VERIFIER[Verifier Agent]
+        VERIFIER -->|Fact-Checked Matrix| LEAD_EVAL[Lead Evaluation]
+    end
+    
+    LEAD_EVAL -->|Evidence Sufficient| VERDICT([Final Verdict])
+    LEAD_EVAL -->|Insufficient Evidence| GAP[Knowledge Gap Identified]
+    
+    GAP -->|New Mission| ROUND2[Round N+1]
+    ROUND2 --> RESEARCHERS
 ```
 
 ---
 
-## Core Components
+## Infrastructure & Telemetry
 
-### 1. Investigation Controller (`app/orchestration/investigation_controller.py`)
-- Manages the multi-round execution loop (up to `MAX_ROUNDS = 3`).
-- Coordinates state updates across rounds and interacts directly with `FirestoreRepository`.
-- Publishes execution steps to `EventBus` for Real-time SSE streaming.
+```mermaid
+flowchart LR
+    CLOUD_RUN[Cloud Run / FastAPI]
+    
+    CLOUD_RUN <-->|Prompt / Structured Output| GEMINI[Google Gemini API]
+    CLOUD_RUN <-->|State Persistence| FIRESTORE[Google Cloud Firestore]
+    CLOUD_RUN -->|SSE Telemetry| EVENTBUS[EventBus]
+    
+    EVENTBUS -->|Live Updates| CLIENT[Next.js Client]
+```
 
-### 2. Lead Agent (`app/agents/lead/agent.py`)
-- Powered by `google-genai` (Gemini 2.5 Flash).
-- Analyzes user objectives and constraints.
-- Dynamically creates specialized research missions (Landscape, Feasibility, Opportunity).
-- Evaluates round evidence and determines whether a gap exists or if a final verdict can be issued.
+---
 
-### 3. Research Orchestrator & Specialist Researchers (`app/orchestration/research_orchestrator.py`, `app/agents/researchers/`)
-- Executes research missions concurrently (`asyncio.gather`).
-- Leverages `DuckDuckGoSearchProvider` (`duckduckgo-search`) for web research.
-- Formulates claims backed by empirical evidence sources.
+## Failure Paths & Safeguards
 
-### 4. Evidence Integrity Validator (`app/services/evidence_integrity.py`)
-- M5.5 Mechanism: Prevents hallucinated citations and unverified URLs from entering state.
-- Strips invalid or fake links, preserves valid external sources, and flags model internal knowledge appropriately.
-
-### 5. Skeptic Agent (`app/agents/skeptic/agent.py`)
-- Adversarial agent that prioritizes top claims and searches for counter-evidence, hidden risks, and false assumptions.
-- Attacks claims to weaken or invalidate flawed findings before final evaluation.
-
-### 6. Verifier Agent (`app/agents/verifier/agent.py`)
-- Independent fact-checker that verifies disputed claims against external ground-truth search results.
-- Transitions claims from `UNVERIFIED` to `VERIFIED` or `DISPROVED`.
-
-### 7. Event Bus & Real-Time SSE (`app/services/event_bus.py`, `app/api/routes.py`)
-- Broadcasts structured, non-CoT execution events to frontend clients via Server-Sent Events (`/api/investigations/{id}/events`).
+```mermaid
+flowchart TD
+    A[Event Trigger] --> B{Safeguard Check}
+    
+    B -->|INVALID SOURCE| C[Rejected Evidence]
+    B -->|DUPLICATE QUERY| D[Deduplicated Search]
+    B -->|RESEARCHER FAILURE| E[Isolated Failure - Others Continue]
+    B -->|NO INFORMATION GAIN| F[Stalled - Max Rounds Enforced]
+```
